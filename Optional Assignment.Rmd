@@ -1,0 +1,252 @@
+---
+title: "Optional Individual Assignment"
+author: "Alireza"
+date: "2023-12-18"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Course Rating The Institute for Statistics Education at Statistics.com asks students to rate a variety of aspects of a course as soon as the student completes it. The Institute is contemplating instituting a recommendation system that would provide students with recommendations for additional courses as soon as they submit their rating for a completed course.**
+**Consider the except from student ratings of online statistics courses shown in Table 14.16, and the problem of what to recommend to student E.N.**
+
+**a. First consider a user-based collaborative filter. This requires computing correlations between all student pairs. For which students is it possible to compute correlations with E.N.? Compute them.**
+
+
+First, we read the data. The first column of the dataframe is the name of each row (students), therefore, for conducting further analysis, we add the names to the dataframe using row.names function and remove the first column of the dataframe.
+
+```{r}
+courseRating <- read.csv("/Users/alireza/Desktop/DTI/1- Fall 23//Fundamentals of Applied Data Science/Optional assignment/Resources/courserating (1) (1).csv", header = T)
+row.names(courseRating) <- courseRating[,1]
+courseRating <- courseRating[,-1]
+courseRating
+```
+
+We can only compute correlations for students who have at least one course rating in common with E.N including LN, MH, JH, DU, and DS.
+
+```{r}
+data <- courseRating[c(1,2,3,4,5,15),]
+#data <- as.matrix(data)
+data
+
+```
+
+Then, using the cor function we can calculate the correlations. However, the dataframe consists various NA values, thus, we should add "use='pairwise.complete.obs'" argument so that R knows to only use pairwise observations where both values are present. Also, we want to calculate correlations for each row, therefore, we have to use the transposed version of our dataframe.
+
+```{r}
+cor(t(data[]), use='pairwise.complete.obs')
+```
+
+**b. Based on the single nearest student to E.N., which single course should we recommend to B.N.? Explain why.**
+
+As can be seen in the correlation matrix, the only user with correlation to student EN is LN. According to the dataset, student LN has rated only two other courses that EN has not taken yet, Python (3) and Forecast (2). Therefore, as these two students are much alike we can conclude that student EN should take the Python course as student LN has rated that course higher than the Forecast course. 
+
+**c. Use R (function similarity()) to compute the cosine similarity between users.**
+
+For calculating the cosine similarity between users we used the "proxy" library.
+
+```{r}
+library(proxy)
+data <- as.matrix(data)
+
+result <- proxy::dist(data, method = "cosine", na.option = "mean")
+
+print(result)
+
+```
+**d. Using the csv file for course ratings, apply item-based collaborative filtering to this dataset (using R) and based on the results, recommend a course to E.N.**
+
+First, we transform our dataframe to matrix. Then, we replace the NAs with zero and calculate the similarity matrix using cosine function.
+
+```{r}
+library(lsa)
+data2 <- as.matrix(courseRating)
+data3 <- data2
+data3[is.na(data3)] = 0
+
+d <- cosine(data3)
+print(d)
+```
+By using recommenderlab library we conducted our IBCF, predict ratings, and provided recommendations. According to our prediction, Spatial course is the most recommended course for student EN as this course has the most predicted rating.
+
+```{r}
+library(recommenderlab)
+d <- as(data2, "realRatingMatrix")
+rec <- Recommender(d, "IBCF")
+pred <- predict(rec, d, type = "ratings")
+as(pred, "matrix")
+```
+
+**Q2. Association Rule**
+
+**Identifying Course Combinations. The Institute for Statistics Education at Statis-tics.com offers online courses in statistics and analytics, and is seeking information that will help in packaging and sequencing courses. Consider the data in the file Course-Topics.cs, the first few rows of which are shown in Table 14.13. These data are for purchases of online statistics courses at Statistics.com. Each row represents the courses attended by a single customer. The firm wishes to assess alternative sequencing and bundling of courses. Use association rules to analyze these data, and interpret several of the resulting rules.**
+
+First, I convert our dataframe to a transaction database format and display it in a readable form using "arules" library.
+
+```{r}
+library(arules)
+ct.df <- read.csv("/Users/alireza/Desktop/DTI/1- Fall 23//Fundamentals of Applied Data Science/Optional assignment/Resources/Coursetopics (1).csv")
+
+ct.mat <- as(ct.df, "matrix")
+
+ct.trans <- as(ct.mat, "transactions")
+
+```
+
+Then, an item frequency plot has been drawn.
+
+```{r}
+itemFrequencyPlot(ct.trans)
+```
+
+Finally, an association rule model has been built in this section. It's support value has been set as 0.01 and the confidence value has been set as 0.5. The first ten rules sorted by their lift values has been illustrated.
+
+```{r}
+rules <- apriori(ct.trans, parameter = list(support = 0.01, confidence = 0.5, target = "rules"))
+
+ruleshead <- inspect(head(sort(rules, by = "lift"), 10))
+
+rules 
+
+ruleshead
+```
+According to the results, if Intro, Survey, and DOE are taken by a student we can be around 80% sure that the student will also take Cat.Data. Also, if Intro, DataMining, and Regression are taken, we can be 50% sure that they will take Forecast. These examples are the highest and lowest confidences in this data set which means these rules are relatively strong.
+
+**Q3. A comparison between neural networks and decision trees**
+
+**1-**
+If Age > 40 and Cred = Excel then NO (People aged more than 40 with excellent credit will not buy a computer)
+If Age > 40 and Cred = Fair then YES (People aged more than 40 with fair credit will buy a computer)
+If 31 > Age > 40 then YES (People aged between 31 and 40 w will buy a computer)
+If Age < 31 and Married = Yes then YES (People aged less than 31 and married will buy a computer)
+If Age < 31 and Married = No then NO (People aged less than 31 and unmarried will not buy a computer)
+
+**2-**
+
+**3.A** Yes, I believe decision tree model is significantly comprehensible to human. However, I did not find the neural network model comprehensible.
+
+**3.B** Decision tree prediction accuracy was 60 percent and neural network model's prediction accuracy was 80 percent. 
+
+**3.C** Neural network models have higher accuracy rates in their predictions but the are not easily comprehensible for humans. On the other hand, decision trees might be slightly less accurate but they are much easier to comprehend for human brain.
+
+
+**Q4 K-Means Clustering**
+**Part A**
+**a.**
+First, lets  load the data, build sexAge.df which is a dataframe consists only the two demanded column and standardize the age in it.
+```{r}
+farmingham.df <- read.csv("/Users/alireza/Desktop/DTI/1- Fall 23//Fundamentals of Applied Data Science/Optional assignment/Resources/framingham (1).csv")
+
+sexAge.df <- farmingham.df[,c(1,2)]
+
+sexAge.norm <- sexAge.df
+sexAge.norm[,2] <- as.data.frame(scale(sexAge.norm[, 2]))
+
+head(sexAge.norm)
+```
+
+Then, we preform and plot the k-means clustering using "factoextra" library.
+
+```{r}
+library(factoextra)
+
+set.seed(123)
+k4 <- kmeans(sexAge.norm, centers = 4, nstart = 10)
+
+fviz_cluster(k4, data = sexAge.norm)
+```
+
+**b.**
+In this section, we apply the elbow method to determine the best k and plot it.
+
+```{r}
+set.seed(777)
+fviz_nbclust(sexAge.norm, kmeans, method = "wss")
+```
+According to the results, k = 4 is a optimal point using the elbow method.
+
+**C.**
+I used the following function to plot the average Silhouette to find the optimal number of clusters. According to the results, K = 9 is the optimal number for k,
+
+```{r}
+fviz_nbclust(sexAge.norm, kmeans, method = "silhouette")
+```
+
+**2.**
+
+**Part B**
+
+**a.** 
+Firstly, data should be imported
+
+```{r}
+churn.df <- read.csv("/Users/alireza/Desktop/DTI/1- Fall 23/Fundamentals of Applied Data Science/Optional assignment/Resources/customer_churn.csv")
+
+head(churn.df)
+
+```
+
+Then, we split the data and plot the number of observations.
+
+```{r}
+library(RColorBrewer)
+set.seed(111)
+dt = sort(sample(nrow(churn.df), nrow(churn.df)*0.67))
+train<-churn.df[dt,]
+test<-churn.df[-dt,]
+
+tt <- data.frame(Test = nrow(test), Train = nrow(train))
+tt <- as.matrix(tt)
+
+coul <- brewer.pal(5, "Set2") 
+barplot(height=tt[1,], col=coul )
+
+```
+
+**B.**
+
+```{r}
+t1 <- table(train$Churn)
+t2 <- table(test$Churn)
+t3 <- table(churn.df$Churn)
+
+
+
+t1.ratio <- t1[2]/(t1[1] + t1[2])
+t1.ratio
+
+t2.ratio <- t2[2]/(t2[1] + t2[2])
+t2.ratio
+```
+Thus, we have to add 2300 rows with false Churn value in order to have 20 percent true churn value in the data. Or we can reduce the number of true churn values. We can also do both of them using ROSE package as demonstrated below.
+
+**C.** 
+In this section rebalanced dataset is built using ROSE package and the ratio has been illustrated to confirm that the sample now has 20 percent True churn values.
+
+```{r}
+library(ROSE)
+churn.df$Churn <- as.factor(churn.df$Churn)
+
+rebalanced <- ovun.sample(Churn~., data = churn.df, method = "both", p = 0.212, seed = 213)$data
+t1n <- table(rebalanced$Churn)
+
+t1n.ratio <- t1n[2]/(t1n[1] + t1n[2])
+t1n.ratio
+
+```
+
+Now again I build the Training and Test sets.
+
+```{r}
+set.seed(313)
+re.dt = sort(sample(nrow(rebalanced), nrow(rebalanced)*0.67))
+re.train<-rebalanced[dt,]
+re.test<-rebalanced[-dt,]
+```
+
+
+
